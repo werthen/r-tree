@@ -1,5 +1,9 @@
-{-# LANGUAGE NoMonomorphismRestriction, DeriveFunctor, OverlappingInstances, DeriveDataTypeable, BangPatterns #-}
-{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE BangPatterns              #-}
+{-# LANGUAGE DeriveDataTypeable        #-}
+{-# LANGUAGE DeriveFunctor             #-}
+{-# LANGUAGE DeriveGeneric             #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverlappingInstances      #-}
 
 {- |
     Module     : Data.RTree.Base
@@ -62,23 +66,23 @@ module Data.RTree.Base
 )
 where
 
-import           Prelude hiding (lookup, length, null, map)
+import           Prelude             hiding (length, lookup, map, null)
 
 import           Data.Binary
-import           Data.Function (on)
-import           Data.List (maximumBy, minimumBy, partition)
-import qualified Data.List as L (length,map)
-import           Data.Maybe (catMaybes, isJust)
-import qualified Data.Maybe as Maybe (mapMaybe)
-import           Data.Monoid (Monoid, mempty, mappend)
-import           Data.Typeable (Typeable)
+import           Data.Function       (on)
+import           Data.List           (maximumBy, minimumBy, partition)
+import qualified Data.List           as L (length, map)
+import           Data.Maybe          (catMaybes, isJust)
+import qualified Data.Maybe          as Maybe (mapMaybe)
+import           Data.Monoid         (Monoid, mappend, mempty)
+import           Data.Typeable       (Typeable)
 
 import           Control.Applicative ((<$>))
-import           Control.DeepSeq (NFData, rnf)
+import           Control.DeepSeq     (NFData, rnf)
 
-import           GHC.Generics (Generic)
+import           GHC.Generics        (Generic)
 
-import           Data.RTree.MBB hiding (mbb)
+import           Data.RTree.MBB      hiding (mbb)
 
 data RTree a =
       Node4 {getMBB :: {-# UNPACK #-} ! MBB, getC1 :: ! (RTree a), getC2 :: ! (RTree a), getC3 :: ! (RTree a), getC4 :: ! (RTree a) }
@@ -130,12 +134,12 @@ norm :: RTree a -> RTree a
 norm (Node4 mbb x y z w) = Node mbb [x,y,z,w]
 norm (Node3 mbb x y z)   = Node mbb [x,y,z]
 norm (Node2 mbb x y)     = Node mbb [x,y]
-norm x = x
+norm x                   = x
 
 getChildren :: RTree a -> [RTree a]
-getChildren Empty = error "getChildren: Empty"
+getChildren Empty  = error "getChildren: Empty"
 getChildren Leaf{} = error "getChildren: Leaf"
-getChildren t = getChildren' $ norm t
+getChildren t      = getChildren' $ norm t
 
 -- ----------------------------------
 -- Lists
@@ -153,9 +157,9 @@ fromList' ts = foldr1 unionDistinct ts
 --
 -- prop> toList t = zip (keys t) (values t)
 toList :: RTree a -> [(MBB, a)]
-toList Empty = []
+toList Empty        = []
 toList (Leaf mbb x) = [(mbb, x)]
-toList t = concatMap toList $ getChildren t
+toList t            = concatMap toList $ getChildren t
 
 -- | returns all keys in this tree
 --
@@ -191,7 +195,7 @@ insert = insertWith const
 
 simpleMergeEqNode :: (a -> a -> a) -> RTree a -> RTree a -> RTree a
 simpleMergeEqNode f l@Leaf{} r = Leaf (getMBB l) (on f getElem l r)
-simpleMergeEqNode _ l _ = l
+simpleMergeEqNode _ l _        = l
 
 -- | Unifies left and right 'RTree'. Will create invalid trees, if the tree is not a leaf and contains 'MBB's which
 --  also exists in the left tree. Much faster than union, though.
@@ -222,9 +226,9 @@ addLeaf f left right
     newChildren = findNodeWithMinimalAreaIncrease f left (getChildren right)
     (eq, nonEq) = partition (on (==) getMBB left) $ getChildren right
     newNode = case eq of
-        [] -> left
+        []  -> left
         [x] -> simpleMergeEqNode f left x
-        _ -> error "addLeaf: invalid RTree"
+        _   -> error "addLeaf: invalid RTree"
 
 findNodeWithMinimalAreaIncrease :: (a -> a -> a) -> RTree a -> [RTree a] -> [RTree a]
 findNodeWithMinimalAreaIncrease f leaf children = splitMinimal xsAndIncrease
@@ -275,7 +279,7 @@ quadSplit left right unfinished
             where
             isLeft = (areaIncreasesWithLeft) < (areaIncreasesWithRight)
             growth = case isLeft of
-                True -> areaIncreasesWithLeft
+                True  -> areaIncreasesWithLeft
                 False -> areaIncreasesWithRight
             areaIncreasesWithLeft  = (areaIncreasesWith x (createNodeWithChildren left))
             areaIncreasesWithRight = (areaIncreasesWith x (createNodeWithChildren right))
@@ -306,7 +310,7 @@ lookup mbb t@Leaf{}
     | mbb == getMBB t = Just $ getElem t
     | otherwise = Nothing
 lookup mbb t = case founds of
-    [] -> Nothing
+    []  -> Nothing
     x:_ -> Just x
     where
     matches = filter (\x -> (getMBB x) `containsMBB` mbb) $ getChildren t
@@ -413,7 +417,7 @@ isValid :: Show b => b -> RTree a -> Bool
 isValid _ Empty = True
 isValid _ Leaf{} = True
 isValid context x = case L.length c >= m && L.length c <= n && (and $ (isValid context) <$> c) && (isBalanced x) of
-    True -> True
+    True  -> True
     False -> error ( "invalid " ++ show (L.length c) ++ " " ++ show context )
     where
     isBalanced :: RTree a -> Bool
@@ -449,15 +453,15 @@ pp' i (Node4 mbb c1 c2 c3 c4) = do
 -- ----------------------
 
 depth :: RTree a -> Int
-depth Empty = 0
+depth Empty       = 0
 depth (Leaf _ _ ) = 1
-depth t = 1 + (depth $ head $ getChildren t)
+depth t           = 1 + (depth $ head $ getChildren t)
 
 -- | returns the number of elements in a tree
 length :: RTree a -> Int
-length Empty = 0
+length Empty     = 0
 length (Leaf {}) = 1
-length t = sum $ length <$> (getChildren t)
+length t         = sum $ length <$> (getChildren t)
 
 --delete' :: MBB -> RTree a -> Either (RTree a) [(MBB, a)]
 
@@ -490,6 +494,10 @@ instance  (Binary a) => Binary (RTree a) where
                    _ -> fail "RTree.get: error while decoding RTree"
 
 
+instance (Semigroup a) => Semigroup (RTree a) where
+    (<>) = unionWith (<>)
+
+
 instance (Monoid a) => Monoid (RTree a) where
     mempty = empty
-    mappend = unionWith mappend
+    mappend = (<>)
